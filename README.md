@@ -1,8 +1,7 @@
 # Jun-shops (MySQL)
 
-A full-stack Spring Boot e-commerce application featuring both a **Vaadin web UI** and **REST API**.  
-Built with **Spring MVC**, **Spring Data JPA**, **Vaadin 24.3.5**, and dual authentication (**session-based** for UI, **JWT** for API).  
-Provides a modern web interface for product management, shopping cart, and orders, plus REST APIs for programmatic access and integration.
+A Spring Boot e-commerce backend built with **Spring MVC**, **Spring Data JPA**, and **JWT authentication**.  
+Provides REST APIs for users, products, categories, carts, orders, and image management.
 
 ---
 
@@ -10,15 +9,12 @@ Provides a modern web interface for product management, shopping cart, and order
 
 - [Features](#features)
 - [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
 - [MySQL Setup](#mysql-setup)
 - [Configuration](#configuration)
   - [`application.properties` (MySQL + JPA + JWT)](#applicationproperties-mysql--jpa--jwt)
 - [Run the Application](#run-the-application)
-- [Accessing the Application](#accessing-the-application)
-- [Authentication](#authentication)
-- [Vaadin Configuration](#vaadin-configuration)
-- [Security Configuration](#security-configuration)
-- [User Interface](#user-interface)
+- [Authentication (JWT)](#authentication-jwt)
 - [API Overview](#api-overview)
 - [Database Notes](#database-notes)
 - [Common Issues & Fixes](#common-issues--fixes)
@@ -29,21 +25,13 @@ Provides a modern web interface for product management, shopping cart, and order
 
 ## Features
 
-- **Vaadin Web UI** for managing products, cart, and orders
-- **Dual Interface**: Modern web UI + REST API for flexibility
 - User CRUD (create, update, delete, fetch)
-- **Session-based authentication** for web UI
-- **JWT authentication** for REST API
 - Login endpoint that returns a JWT
 - Product & category endpoints
-- Interactive product management (CRUD operations)
-- Shopping cart interface with real-time totals
 - Cart management (add/remove/update items, totals)
 - Order placement from cart (creates order + order items)
 - Inventory reduction when placing orders
 - Image upload/download/update/delete APIs
-- User-friendly navigation with drawer menu
-- Responsive design for mobile and desktop
 
 ---
 
@@ -52,10 +40,8 @@ Provides a modern web interface for product management, shopping cart, and order
 - Java 17
 - Spring Boot
 - Spring MVC
-- Spring Security (Session-based for UI + JWT for API)
+- Spring Security + JWT
 - Spring Data JPA (Hibernate)
-- Vaadin 24.3.5
-- Vaadin Spring Boot Integration
 - Lombok
 - ModelMapper
 - Maven
@@ -120,109 +106,16 @@ bat mvnw.cmd spring-boot:run
 bash ./mvnw clean package java -jar target/<YOUR_JAR_NAME>.jar
 ---
 
-## Accessing the Application
+## Authentication (JWT)
 
-After starting the application, you can access it in two ways:
+### Login
+`POST ${api.prefix}/auth/login`
 
-### 1. Vaadin Web UI (Recommended for Users)
-- **URL**: `http://localhost:8080/`
-- **Authentication**: Session-based login
-- **Default Admin Credentials**:
-  - Email: `admin1@email.com`
-  - Password: `123456`
+On success, the server returns a JWT token.
 
-#### Available Views:
-- **Products**: View, add, edit, and delete products with a searchable grid
-- **Cart**: Manage shopping cart items and view totals
-- **Categories**: Category management (coming soon)
-- **Orders**: Order history and management (coming soon)
-- **Users**: User management (Admin only)
-
-### 2. REST API (For Developers/Integration)
-- **Base URL**: `http://localhost:8080/api/v1`
-- **Authentication**: JWT token-based
-- **Login**: `POST /api/v1/auth/login`
-- **API Documentation**: See [API Overview](#api-overview) section below
-
----
-
-## Authentication
-
-### Web UI Authentication (Vaadin)
-1. Navigate to `http://localhost:8080/`
-2. You'll be redirected to `/login`
-3. Enter credentials (use default admin account for testing)
-4. After login, you'll have access to all views based on your role
-
-### API Authentication (JWT)
-1. Send POST request to `/api/v1/auth/login` with email and password
-2. Receive JWT token in response
-3. Include token in subsequent API requests:
-   ```
-   Authorization: Bearer <JWT_TOKEN>
-   ```
-4. Token expires based on configuration (default: 1 hour)
-
----
-
-## Vaadin Configuration
-
-The application includes Vaadin-specific settings in `application.properties`:
-
-```properties
-# Vaadin
-vaadin.launch-browser=true
-vaadin.whitelisted-packages=com.dailyproject.Junshops
-```
-
-- `vaadin.launch-browser`: Automatically opens browser when running
-- `vaadin.whitelisted-packages`: Allows Vaadin to scan for UI components
-
----
-
-## Security Configuration
-
-The application uses **dual authentication**:
-
-1. **Session-based (for Vaadin UI)**:
-   - Uses Spring Security's form login
-   - Sessions managed by Spring
-   - Logout available in UI header
-
-2. **JWT-based (for REST API)**:
-   - Stateless authentication
-   - Token expiration configurable
-   - Secured endpoints: `/api/v1/cart/**`, `/api/v1/cartItems/**`
-   - All other API endpoints permit all (for demo purposes)
-
-Both authentication methods coexist and work independently.
-
----
-
-## User Interface
-
-### Main Features
-
-**Navigation**: Side drawer menu with quick access to all sections
-
-**Products View**:
-- Searchable product grid
-- Add/Edit/Delete products with inline form
-- Real-time filtering by product name
-- Displays: ID, Name, Brand, Price, Stock, Category
-
-**Shopping Cart**:
-- View all cart items
-- Remove individual items
-- Clear entire cart
-- See running total
-- Checkout button (integration pending)
-
-**Login**:
-- Clean, centered login form
-- Error messages on failed authentication
-- Automatic redirect after successful login
-
+### Using the token
+Include the token on secured endpoints:
+Authorization: Bearer <JWT_TOKEN>
 ---
 
 ## API Overview
@@ -291,24 +184,10 @@ Fix: when clearing cart items, reset/recalculate cart `totalAmount` and persist.
 
 ## Development Tips
 
-### General
-- Return DTOs from controllers (avoid returning JPA entities directly)
-- Keep controllers thin; place business logic in services
-- Use transactions for workflows like "place order" and inventory updates
-- Prefer a GlobalExceptionHandler for consistent API error responses
-
-### Vaadin UI
-- All views are in `src/main/java/com/dailyproject/Junshops/views/`
-- Use `@Route` annotation to define navigation paths
-- Use `@PermitAll` or `@RolesAllowed` for security
-- Vaadin components are injected with Spring dependencies
-- Use `Notification.show()` for user feedback
-- Extend `MainLayout` for consistent navigation across views
-
-### REST API
-- Base path configured via `api.prefix` property
-- Use JWT for stateless authentication
-- Include proper error handling in responses
+- Return DTOs from controllers (avoid returning JPA entities directly).
+- Keep controllers thin; place business logic in services.
+- Use transactions for workflows like “place order” and inventory updates.
+- Prefer a GlobalExceptionHandler for consistent API error responses.
 
 ---
 

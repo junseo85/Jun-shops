@@ -5,18 +5,17 @@ import com.dailyproject.Junshops.security.jwt.AuthTokenFilter;
 import com.dailyproject.Junshops.security.jwt.JwtAuthEntryPoint;
 import com.dailyproject.Junshops.security.jwt.JwtUtils;
 import com.dailyproject.Junshops.security.user.ShopUserDetailsService;
-import com.vaadin.flow.spring.security.VaadinWebSecurity;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,7 +28,7 @@ import java.util.List;
 @EnableWebSecurity
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)
-public class ShopConfig extends VaadinWebSecurity {
+public class ShopConfig {
     private final ShopUserDetailsService userDetailsService;
     private final JwtAuthEntryPoint authEntryPoint;
 
@@ -52,44 +51,31 @@ public class ShopConfig extends VaadinWebSecurity {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) {
         return authConfig.getAuthenticationManager();
     }
 
     @Bean
     public DaoAuthenticationProvider daoAuthenticationProvider(){
-        var authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
+        var authProvider = new DaoAuthenticationProvider(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
+
     }
 
-    /**
-     * Security filter chain for REST API endpoints - uses JWT authentication
-     */
+
     @Bean
-    @Order(1)
-    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
-        http.securityMatcher("/api/v1/**")
-                .csrf(csrf -> csrf.disable())
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception{
+        // Configures stateless session management and secured endpoints
+        http.csrf(AbstractHttpConfigurer::disable)
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(authEntryPoint))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(SECURED_URLS.toArray(String[]::new)).authenticated()
-                        .anyRequest().permitAll())
-                .authenticationProvider(daoAuthenticationProvider())
-                .addFilterBefore(authTokenFilter(null, null), UsernamePasswordAuthenticationFilter.class);
-        
-        return http.build();
-    }
+                        .anyRequest().permitAll());
 
-    /**
-     * Security filter chain for Vaadin UI - uses session-based authentication
-     */
-    @Override
-    @Order(2)
-    protected void configure(HttpSecurity http) throws Exception {
-        super.configure(http);
-        setLoginView(http, "/login");
+        http.authenticationProvider(daoAuthenticationProvider());
+        http.addFilterBefore(authTokenFilter(null,null), UsernamePasswordAuthenticationFilter.class);
+        return http.build();
     }
 }

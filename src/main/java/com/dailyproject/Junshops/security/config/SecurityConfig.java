@@ -49,14 +49,20 @@ public class SecurityConfig extends VaadinWebSecurity {
     /**
      * Vaadin UI Security - Using Vaadin's built-in configuration
      */
+
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        // Vaadin handles all the security configuration
+        // Allow register route
+        http.authorizeHttpRequests(auth ->
+                auth.requestMatchers("/register", "/register/**").permitAll()
+        );
+
+        // Call parent to set up Vaadin security
         super.configure(http);
 
         // Set login view
         setLoginView(http, LoginView.class);
 
-        System.out.println("🔐 Vaadin Security using VaadinWebSecurity - No popup!");
+        System.out.println("🔐 Using VaadinWebSecurity");
     }
 }

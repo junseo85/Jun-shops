@@ -19,13 +19,16 @@ public class CartItemService implements ICartItemService{
     private final IProductService productService;
     private final ICartService cartService;
     @Override
+    @Transactional
     public void addItemToCart(Long cartId, Long productId, int quantity) {
         //1. get the cart
         //2. get the product
         //3. check if the product already in the cart
         //4. If Yes, then increase the quantity with the requested quantity
         //5. If No, then initiate a new CartItem entry
-        Cart cart = cartService.getCart(cartId);
+        //user getCartWithItems to eagerly load items
+        //Cart cart = cartService.getCart(cartId);
+        Cart cart = cartService.getCartWithItems(cartId);
         Product product = productService.getProductById(productId);
         // Attempts to locate existing item in cart
         CartItem cartItem = cart.getItems()
@@ -52,7 +55,7 @@ public class CartItemService implements ICartItemService{
     @Transactional
     @Override
     public void removeItemFromCart(Long cartId, Long productId) {
-        Cart cart = cartService.getCart(cartId);
+        Cart cart = cartService.getCartWithItems(cartId);
         //CartItem itemToRemove = getCartItem(cartId, productId);
         // 2. Find the item within the cart's set to avoid redundant DB calls
         CartItem itemToRemove = cart.getItems()
@@ -67,7 +70,7 @@ public class CartItemService implements ICartItemService{
     @Transactional
     @Override
     public void updateItemQuantity(Long cartId, Long productId, int quantity) {
-        Cart cart = cartService.getCart(cartId);
+        Cart cart = cartService.getCartWithItems(cartId);
 
         // 1. Handle removal if quantity is 0 or less
         if (quantity <= 0) {
@@ -98,8 +101,9 @@ public class CartItemService implements ICartItemService{
         cartRepository.save(cart);
     }
     @Override
+    @Transactional
     public CartItem getCartItem(Long cartId, Long productId){
-        Cart cart = cartService.getCart(cartId);
+        Cart cart = cartService.getCartWithItems(cartId);
         // Finds cart item matching product or throws exception
         return cart.getItems()
                 .stream().filter(item -> item.getProduct().getId().equals(productId))

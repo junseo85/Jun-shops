@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -69,6 +70,15 @@ public class UserService implements IUserService{
     public User getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
-        return  userRepository.findByEmail(email);
+        return  userRepository.findByEmail(email)
+                .orElseThrow(()-> new ResourceNotFoundException("User not found!"));
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public User getAuthenticatedUserWithCart() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        return userRepository.findByEmailWithCart(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found!"));
     }
 }

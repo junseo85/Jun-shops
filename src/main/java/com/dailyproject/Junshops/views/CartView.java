@@ -34,16 +34,20 @@ public class CartView extends VerticalLayout {
     private final ICartItemService cartItemService;
     private final IUserService userService;
 
+
     private VerticalLayout cartItemsLayout;
     private Span totalAmountSpan;
     private Cart currentCart;
 
+    // ✅ UPDATED CONSTRUCTOR - Add IOrderService parameter
     public CartView(ICartService cartService,
                     ICartItemService cartItemService,
-                    IUserService userService) {
+                    IUserService userService
+                    ) {
         this.cartService = cartService;
         this.cartItemService = cartItemService;
         this.userService = userService;
+
 
         setSpacing(true);
         setPadding(true);
@@ -70,20 +74,17 @@ public class CartView extends VerticalLayout {
     private void loadCart() {
         cartItemsLayout.removeAll();
 
+        // Loads cart; handles empty/error states; shows notification
         try {
-            // Get authenticated user
             User user = userService.getAuthenticatedUser();
 
-            //  USE getCartByUserIdWithItems - fetches everything in one query
             currentCart = cartService.getCartByUserIdWithItems(user.getId());
 
-            // Check if cart exists and has items
             if (currentCart == null || currentCart.getItems() == null || currentCart.getItems().isEmpty()) {
                 showEmptyCart();
                 return;
             }
 
-            // Display items
             currentCart.getItems().forEach(this::addCartItemComponent);
             updateTotal(currentCart.getTotalAmount());
 
@@ -94,6 +95,9 @@ public class CartView extends VerticalLayout {
         }
     }
 
+    /**
+     * Displays empty cart message; navigates to product list
+     */
     private void showEmptyCart() {
         VerticalLayout empty = new VerticalLayout();
         empty.setAlignItems(Alignment.CENTER);
@@ -118,6 +122,9 @@ public class CartView extends VerticalLayout {
         updateTotal(BigDecimal.ZERO);
     }
 
+    /**
+     * Adds cart item component to the layout
+     */
     private void addCartItemComponent(CartItem item) {
         HorizontalLayout itemLayout = new HorizontalLayout();
         itemLayout.setWidthFull();
@@ -156,6 +163,7 @@ public class CartView extends VerticalLayout {
         quantityField.setStepButtonsVisible(true);
 
         quantityField.addValueChangeListener(e -> {
+            // Updates quantity when value is valid
             if (e.getValue() != null && e.getValue() > 0) {
                 updateQuantity(item.getProduct().getId(), e.getValue());
             }
@@ -179,6 +187,9 @@ public class CartView extends VerticalLayout {
         cartItemsLayout.add(itemLayout);
     }
 
+    /**
+     * Creates footer with total and action buttons
+     */
     private HorizontalLayout createFooter() {
         HorizontalLayout footer = new HorizontalLayout();
         footer.setWidthFull();
@@ -211,12 +222,18 @@ public class CartView extends VerticalLayout {
         Button clearButton = new Button("Clear Cart", e -> clearCart());
         clearButton.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
 
+
         Button checkoutButton = new Button("Proceed to Checkout",
                 new Icon(VaadinIcon.ARROW_RIGHT));
         checkoutButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
+        // Navigate to checkout page
         checkoutButton.addClickListener(e -> {
-            // TODO: Navigate to checkout
-            showNotification("Checkout coming soon!", NotificationVariant.LUMO_SUCCESS);
+            if (currentCart != null && currentCart.getItems() != null && !currentCart.getItems().isEmpty()) {
+                // Navigate to checkout page (don't place order yet!)
+                getUI().ifPresent(ui -> ui.navigate(CheckoutView.class));
+            } else {
+                showNotification("Cart is empty!", NotificationVariant.LUMO_ERROR);
+            }
         });
 
         buttonLayout.add(clearButton, checkoutButton);
@@ -225,18 +242,21 @@ public class CartView extends VerticalLayout {
         return footer;
     }
 
+
     private void updateQuantity(Long productId, int quantity) {
+        // Updates item quantity; reloads cart; shows success/failure notification
         try {
             cartItemService.updateItemQuantity(currentCart.getId(), productId, quantity);
             loadCart();
             showNotification("Quantity updated", NotificationVariant.LUMO_SUCCESS);
         } catch (Exception e) {
             showNotification("Failed to update quantity: " + e.getMessage(), NotificationVariant.LUMO_ERROR);
-            loadCart(); // Reload to show correct values
+            loadCart();
         }
     }
 
     private void removeItem(Long productId) {
+        // Removes item from cart; reloads cart; shows success/failure notification
         try {
             cartItemService.removeItemFromCart(currentCart.getId(), productId);
             loadCart();
@@ -247,6 +267,7 @@ public class CartView extends VerticalLayout {
     }
 
     private void clearCart() {
+        // Clears cart; reloads cart; shows success/failure notification
         try {
             cartService.clearCart(currentCart.getId());
             loadCart();

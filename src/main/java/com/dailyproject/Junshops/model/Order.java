@@ -22,12 +22,14 @@ public class Order {
     private Long orderId;
     private LocalDateTime orderDate;
     private BigDecimal TotalAmount;
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.STRING) // ← Store as text: "PENDING", not 0
     private OrderStatus orderStatus;
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "order",
+            cascade = CascadeType.ALL,  // ← Delete order = delete items
+            orphanRemoval = true)  // ← Remove item = delete from DB
     private Set<OrderItem> orderItems = new HashSet<>();
 
-    @ManyToOne
+    @ManyToOne  // ← Many orders belong to one user
     @JoinColumn(name = "user_id")
     private User user;
 

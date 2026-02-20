@@ -35,14 +35,16 @@ public class ShopConfig {
     private static final List<String> SECURED_URLS =
             List.of("/api/v1/cart/**", "/api/v1/cartItems/**");
 
-    @Bean
-    public ModelMapper modelMapper(){
-        return new ModelMapper();
-    }
+
 
     @Bean
     public PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public ModelMapper modelMapper() {
+        return new ModelMapper();
     }
 
     @Bean

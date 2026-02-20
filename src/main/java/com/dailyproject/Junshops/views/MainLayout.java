@@ -52,6 +52,7 @@ public class MainLayout extends AppLayout {
         menu.add(new RouterLink("🏠 Home", HomeView.class));
         menu.add(new RouterLink("🛍️ Products", ProductListView.class));
         menu.add(new RouterLink("🛒 Cart", CartView.class));
+        menu.add(new RouterLink("📦 Orders", OrderView.class));
         menu.add(new RouterLink("📁 Categories", CategoryView.class));
 
         addToDrawer(menu);

@@ -15,5 +15,8 @@ public interface IOrderService {
 
     List<OrderDto> getUserOrders(Long userId);
 
+    //Get all orders(admin only)
+    List<OrderDto> getAllOrders();
+
     OrderDto convertToDto(Order order);
 }

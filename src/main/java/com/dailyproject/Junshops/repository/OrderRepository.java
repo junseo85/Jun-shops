@@ -63,4 +63,23 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             "WHERE o.user.id = :userId " +
             "ORDER BY o.orderDate DESC")
     List<Order> findByUserIdWithItems(@Param("userId") Long userId);
+    // Add this method to OrderRepository.java
+
+    /**
+     * Find ALL orders with items eagerly loaded
+     *
+     * ADMIN ONLY:
+     * - Returns all orders in system
+     * - Includes all order items and products
+     * - Sorted by date (newest first)
+     *
+     * WARNING:
+     * - Can be slow with many orders
+     * - Consider pagination for production
+     */
+    @Query("SELECT DISTINCT o FROM Order o " +
+            "LEFT JOIN FETCH o.orderItems items " +
+            "LEFT JOIN FETCH items.product " +
+            "ORDER BY o.orderDate DESC")
+    List<Order> findAllWithItems();
 }

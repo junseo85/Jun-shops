@@ -187,9 +187,18 @@ public class OrderService implements IOrderService {
         if (order.getUser() != null) {
             dto.setUserId(order.getUser().getId());
             System.out.println("   - userId: " + order.getUser().getId());
+            dto.setUserFirstName(order.getUser().getFirstName());
+            System.out.println("   - userId: " + order.getUser().getFirstName());
+            dto.setUserLastName(order.getUser().getLastName());
+            System.out.println("   - userLastName: " + order.getUser().getLastName());
+            dto.setUserEmail(order.getUser().getEmail());
+            System.out.println("   - userEmail: " + order.getUser().getEmail());
         } else {
             System.err.println("   WARNING: Order user is null!");
             dto.setUserId(null);
+            dto.setUserFirstName(null);
+            dto.setUserLastName(null);
+            dto.setUserEmail(null);
         }
 
         // Convert order items (null check)
@@ -246,5 +255,30 @@ public class OrderService implements IOrderService {
         dto.setPrice(orderItem.getPrice());
 
         return dto;
+    }
+
+
+    /**
+     * Get ALL orders from ALL users (admin only)
+     *
+     * SECURITY NOTE:
+     * - This method returns ALL orders
+     * - Should only be called by admin endpoints
+     * - @RolesAllowed annotation on controller enforces this
+     *
+     * PERFORMANCE:
+     * - Eagerly loads order items
+     * - Sorted by date (newest first)
+     * - May be slow with many orders (consider pagination)
+     */
+    @Override
+    @Transactional
+    public List<OrderDto> getAllOrders() {
+        // Get all orders with items eagerly loaded
+        List<Order> orders = orderRepository.findAllWithItems();
+
+        return orders.stream()
+                .map(this::convertToDto)
+                .toList();  // Already sorted by query
     }
 }

@@ -62,4 +62,8 @@ public class OrderDto {
      * WHY: Link order to user (optional to display in UI)
      */
     private Long userId;
+
+    private String userFirstName;
+    private String userLastName;
+    private String userEmail;
 }

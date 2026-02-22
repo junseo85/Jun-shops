@@ -13,8 +13,10 @@ import com.dailyproject.Junshops.request.AddProductRequest;
 import com.dailyproject.Junshops.request.ProductUpdateRequest;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,52 +31,119 @@ public class ProductService implements IProductService {
     private final ModelMapper modelMapper;
     private final ImageRepository imageRepository;
 
+    /**
+     * ✅ CACHED: Get all products
+     *
+     * HOW IT WORKS:
+     * 1st call: Query database → Store in Redis → Return
+     * 2nd call: Return from Redis (fast!)
+     *
+     * CACHE KEY: "products::allProducts"
+     * TTL: 1 hour (configured in CacheManager)
+     */
     @Override
-    @Transactional(readOnly = true)
+    //@Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'allProducts'")
     public List<Product> getAllProducts() {
+        System.out.println("🔍 Cache MISS: Fetching all products from database");
         return productRepository.findAll();
     }
 
+    /**
+     * ✅ CACHED: Get product by ID
+     *
+     * CACHE KEY: "products::{id}"
+     * Example: "products::123"
+     *
+     * WHY productId in key?
+     * - Each product has unique cache entry
+     * - Can invalidate individual products
+     */
     @Override
-    @Transactional(readOnly = true)
+    //@Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "#id")
     public Product getProductById(Long id) {
+        System.out.println("🔍 Cache MISS: Fetching product " + id + " from database");
         return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found!"));
     }
 
+    /**
+     * ✅ CACHED: Get products by category
+     *
+     * CACHE KEY: "products::category_{categoryName}"
+     * Example: "products::category_Electronics"
+     */
     @Override
-    @Transactional(readOnly = true)
+    //@Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'category_' + #category")
     public List<Product> getProductsByCategory(String category) {
+        System.out.println("🔍 Cache MISS: Fetching products in category: " + category);
         return productRepository.findByCategoryName(category);
     }
 
+    /**
+     * ✅ CACHED: Get products by brand
+     *
+     * CACHE KEY: "products::brand_{brandName}"
+     */
     @Override
-    @Transactional(readOnly = true)
+    //@Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'brand_' + #brand")
     public List<Product> getProductsByBrand(String brand) {
+        System.out.println("🔍 Cache MISS: Fetching products by brand: " + brand);
         return productRepository.findByBrand(brand);
     }
 
+    /**
+     * ✅ CACHED: Get products by category and brand
+     *
+     * CACHE KEY: "products::category_{category}_brand_{brand}"
+     */
     @Override
-    @Transactional(readOnly = true)
+    //@Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'category_' + #category + '_brand_' + #brand")
     public List<Product> getProductsByCategoryAndBrand(String category, String brand) {
+        System.out.println("🔍 Cache MISS: Fetching products - Category: " + category + ", Brand: " + brand);
         return productRepository.findByCategoryNameAndBrand(category, brand);
     }
 
+    /**
+     * ✅ CACHED: Get products by name
+     *
+     * CACHE KEY: "products::name_{productName}"
+     */
     @Override
-    @Transactional(readOnly = true)
+    //@Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'name_' + #name")
     public List<Product> getProductsByName(String name) {
+        System.out.println("🔍 Cache MISS: Fetching products by name: " + name);
         return productRepository.findByName(name);
     }
 
+    /**
+     * ✅ CACHED: Get products by brand and name
+     *
+     * CACHE KEY: "products::brand_{brand}_name_{name}"
+     */
     @Override
-    @Transactional(readOnly = true)
+    //@Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'brand_' + #brand + '_name_' + #name")
     public List<Product> getProductsByBrandAndName(String brand, String name) {
+        System.out.println("🔍 Cache MISS: Fetching products - Brand: " + brand + ", Name: " + name);
         return productRepository.findByBrandAndName(brand, name);
     }
 
+    /**
+     * ✅ CACHED: Count products by brand and name
+     *
+     * CACHE KEY: "products::count_brand_{brand}_name_{name}"
+     */
     @Override
-    @Transactional(readOnly = true)
+    //@Transactional(readOnly = true)
+    @Cacheable(value = "products", key = "'count_brand_' + #brand + '_name_' + #name")
     public Long countProductsByBrandAndName(String brand, String name) {
+        System.out.println("🔍 Cache MISS: Counting products - Brand: " + brand + ", Name: " + name);
         return productRepository.countByBrandAndName(brand, name);
     }
 
@@ -118,14 +187,26 @@ public class ProductService implements IProductService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * ✅ CACHE EVICTION: Add product
+     *
+     * WHY @CacheEvict?
+     * - New product added → "allProducts" cache is outdated
+     * - Must clear cache to show new product
+     *
+     * allEntries=true: Clear ALL product caches
+     * (Safe but aggressive - alternative: clear only relevant caches)
+     */
     @Override
-    @Transactional
+    //@Transactional
+    @CacheEvict(value = "products", allEntries = true)
     public Product addProduct(AddProductRequest request) {
+        System.out.println("🗑️ Cache CLEARED: Adding new product");
         // Check if product already exists
         if (productExists(request.getName(), request.getBrand())) {
             throw new AlreadyExistsException(request.getBrand() + " " + request.getName() + " already exists!");
         }
-
+        //Get category
         Category category = Optional.ofNullable(categoryRepository.findByName(request.getCategory().getName()))
                 .orElseGet(() -> {
                     Category newCategory = new Category(request.getCategory().getName());
@@ -133,21 +214,45 @@ public class ProductService implements IProductService {
                 });
 
         request.setCategory(category);
+        //Create product
         return productRepository.save(createProduct(request, category));
     }
 
+    /**
+     * ✅ CACHE UPDATE: Update product
+     *
+     * @CachePut:
+     * - Updates cache with new value
+     * - Returns updated product
+     * - Cache key matches the product ID
+     *
+     * ALSO: @CacheEvict for "allProducts"
+     * - Updated product affects list queries
+     */
     @Override
-    @Transactional
+    //@Transactional
+    @CachePut(value = "products", key = "#productId")
+    @CacheEvict(value = "products", key = "'allProducts'")
     public Product updateProduct(ProductUpdateRequest request, Long productId) {
+        System.out.println("🔄 Cache UPDATED: Updating product " + productId);
         return productRepository.findById(productId)
                 .map(existingProduct -> updateExistingProduct(existingProduct, request))
                 .map(productRepository::save)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found!"));
     }
 
+    /**
+     * ✅ CACHE EVICTION: Delete product
+     *
+     * allEntries=true:
+     * - Deleted product affects all queries
+     * - Clear everything to be safe
+     */
     @Override
-    @Transactional
+    //@Transactional
+    @CacheEvict(value = "products", allEntries = true)
     public void deleteProductById(Long id) {
+        System.out.println("🗑️ Cache CLEARED: Deleting product " + id);
         productRepository.findById(id)
                 .ifPresentOrElse(productRepository::delete,
                         () -> { throw new ResourceNotFoundException("Product not found!"); });

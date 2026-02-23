@@ -2,9 +2,10 @@ package com.dailyproject.Junshops.client.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -32,7 +33,7 @@ import java.time.Duration;
  * - Configure cache behavior
  */
 @Configuration
-@EnableCaching  // ✅ Enable Spring's caching support
+//@EnableCaching  // ✅ Enable Spring's caching support
 public class RedisConfig {
 
     /**
@@ -52,6 +53,13 @@ public class RedisConfig {
 
         // Don't write dates as timestamps
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        //Enable type information in JSON
+        PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
+                .allowIfBaseType(Object.class) // Allow all types
+                .build();
+
+        mapper.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.NON_FINAL);
 
         return mapper;
     }

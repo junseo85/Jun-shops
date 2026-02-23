@@ -17,9 +17,9 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -198,24 +198,75 @@ public class ProductService implements IProductService {
      * (Safe but aggressive - alternative: clear only relevant caches)
      */
     @Override
-    //@Transactional
+    @Transactional
     @CacheEvict(value = "products", allEntries = true)
     public Product addProduct(AddProductRequest request) {
-        System.out.println("🗑️ Cache CLEARED: Adding new product");
+        System.out.println("🔄 Adding new product: " + request.getName());
+
+        // Validate request
+        if (request == null) {
+            throw new IllegalArgumentException("Product request cannot be null");
+        }
+
+        if (request.getName() == null || request.getBrand() == null) {
+            throw new IllegalArgumentException("Product name and brand are required");
+        }
+
         // Check if product already exists
         if (productExists(request.getName(), request.getBrand())) {
-            throw new AlreadyExistsException(request.getBrand() + " " + request.getName() + " already exists!");
+            throw new AlreadyExistsException(
+                    request.getBrand() + " " + request.getName() + " already exists"
+            );
         }
-        //Get category
-        Category category = Optional.ofNullable(categoryRepository.findByName(request.getCategory().getName()))
-                .orElseGet(() -> {
-                    Category newCategory = new Category(request.getCategory().getName());
-                    return categoryRepository.save(newCategory);
-                });
 
-        request.setCategory(category);
-        //Create product
-        return productRepository.save(createProduct(request, category));
+        // ✅ FIX: Handle category properly (avoid detached entity)
+        Category category;
+
+        if (request.getCategory() == null) {
+            throw new IllegalArgumentException("Category is required");
+        }
+
+        // If category has ID, load it from database
+        if (request.getCategory().getId() != null) {
+            category = categoryRepository.findById(request.getCategory().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Category not found with ID: " + request.getCategory().getId()
+                    ));
+            System.out.println("✅ Loaded existing category: " + category.getName() + " (ID: " + category.getId() + ")");
+        }
+        // If category only has name, find or create
+        else if (request.getCategory().getName() != null) {
+            String categoryName = request.getCategory().getName();
+            category = categoryRepository.findByName(categoryName);
+
+            if (category == null) {
+                // Create new category
+                category = new Category(categoryName);
+                category = categoryRepository.save(category);
+                System.out.println("✅ Created new category: " + category.getName() + " (ID: " + category.getId() + ")");
+            } else {
+                System.out.println("✅ Found existing category: " + category.getName() + " (ID: " + category.getId() + ")");
+            }
+        }
+        else {
+            throw new IllegalArgumentException("Category must have either ID or name");
+        }
+
+        // Create product with managed category
+        Product product = new Product(
+                request.getName(),
+                request.getBrand(),
+                request.getPrice(),
+                request.getInventory(),
+                request.getDescription(),
+                category  // ✅ This is now a MANAGED entity
+        );
+
+        // Save product
+        Product savedProduct = productRepository.save(product);
+        System.out.println("✅ Product saved successfully with ID: " + savedProduct.getId());
+
+        return savedProduct;
     }
 
     /**

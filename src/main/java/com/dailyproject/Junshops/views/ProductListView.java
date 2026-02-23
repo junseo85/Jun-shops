@@ -2,13 +2,19 @@ package com.dailyproject.Junshops.views;
 
 import com.dailyproject.Junshops.dto.ProductDto;
 import com.dailyproject.Junshops.model.Cart;
+import com.dailyproject.Junshops.model.Category;
 import com.dailyproject.Junshops.model.User;
+import com.dailyproject.Junshops.request.AddProductRequest;
 import com.dailyproject.Junshops.service.cart.ICartItemService;
 import com.dailyproject.Junshops.service.cart.ICartService;
+import com.dailyproject.Junshops.service.category.ICategoryService;
 import com.dailyproject.Junshops.service.product.IProductService;
 import com.dailyproject.Junshops.service.user.IUserService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -17,16 +23,41 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.IntegerField;
+import com.vaadin.flow.component.textfield.NumberField;
+import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * ProductListView - Product catalog with admin capabilities
+ *
+ * FEATURES:
+ * - Browse all products (all users)
+ * - Add to cart (authenticated users)
+ * - Add new products (admin only)
+ * - Refresh product list
+ *
+ * SECURITY:
+ * - PermitAll: Anyone can view
+ * - Add button: Only visible to admins
+ *
+ * ARCHITECTURE:
+ * - Uses ProductDto (not Product entity)
+ * - Better separation of concerns
+ * - No lazy loading issues
+ */
 @Route(value = "products", layout = MainLayout.class)
 @PageTitle("Products | Jun-Shops")
 @PermitAll
@@ -36,6 +67,7 @@ public class ProductListView extends VerticalLayout {
     private final ICartService cartService;
     private final ICartItemService cartItemService;
     private final IUserService userService;
+    private final ICategoryService categoryService;
 
     private final Grid<ProductDto> grid = new Grid<>(ProductDto.class, false);
     private final TextField filterText = new TextField();
@@ -46,11 +78,12 @@ public class ProductListView extends VerticalLayout {
     public ProductListView(IProductService productService,
                            ICartService cartService,
                            ICartItemService cartItemService,
-                           IUserService userService) {
+                           IUserService userService,ICategoryService categoryService) {
         this.productService = productService;
         this.cartService = cartService;
         this.cartItemService = cartItemService;
         this.userService = userService;
+        this.categoryService = categoryService;
 
         addClassName("product-list-view");
         setSizeFull();
@@ -72,7 +105,7 @@ public class ProductListView extends VerticalLayout {
         grid.addColumn(ProductDto::getPrice).setHeader("Price").setAutoWidth(true);
         grid.addColumn(ProductDto::getInventory).setHeader("Stock").setWidth("100px");
 
-        // ✅ NEW: Add interactive quantity selector with confirm
+        // interactive quantity selector with confirm
         grid.addComponentColumn(product -> {
             return createQuantitySelectorLayout(product);
         }).setHeader("Actions").setWidth("250px").setFlexGrow(0);
@@ -174,27 +207,190 @@ public class ProductListView extends VerticalLayout {
         filterText.setValueChangeMode(ValueChangeMode.LAZY);
         filterText.addValueChangeListener(e -> updateList());
     }
-
+    /**
+     * Toolbar with Refresh and Admin Add button
+     */
     private HorizontalLayout getToolbar() {
-        Button refreshButton = new Button("Refresh");
+        Button refreshButton = new Button("Refresh", new Icon(VaadinIcon.REFRESH));
         refreshButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
-        refreshButton.addClickListener(e -> updateList());
+        refreshButton.addClickListener(e -> {
+            updateList();
+            showNotification("Products refreshed!", NotificationVariant.LUMO_SUCCESS);
+        });
 
         HorizontalLayout toolbar = new HorizontalLayout(filterText, refreshButton);
         toolbar.addClassName("toolbar");
+        toolbar.setAlignItems(Alignment.CENTER);
+
+        // Add button (only visible to admins)
+        if (isAdmin()) {
+            Button addButton = new Button("Add", new Icon(VaadinIcon.PLUS));
+            addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            addButton.addClickListener(e -> openAddProductDialog());
+            toolbar.add(addButton);
+        }
         return toolbar;
     }
 
+    /**
+     * Check if current user has ADMIN role
+     */
+    private boolean isAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role -> role.equals("ROLE_ADMIN"));
+    }
+    /**
+     * ✅ NEW: Open popup dialog to add new product
+     */
+    private void openAddProductDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("➕ Add New Product");
+        dialog.setWidth("600px");
+        dialog.setCloseOnEsc(true);
+        dialog.setCloseOnOutsideClick(false);
+
+        // Form layout
+        FormLayout formLayout = new FormLayout();
+        formLayout.setResponsiveSteps(
+                new FormLayout.ResponsiveStep("0", 1),
+                new FormLayout.ResponsiveStep("500px", 2)
+        );
+
+        // Product name
+        TextField nameField = new TextField("Product Name");
+        nameField.setRequired(true);
+        nameField.setPlaceholder("e.g., iPhone 15 Pro");
+        nameField.setWidthFull();
+
+        // Brand
+        TextField brandField = new TextField("Brand");
+        brandField.setRequired(true);
+        brandField.setPlaceholder("e.g., Apple");
+        brandField.setWidthFull();
+
+        // Category dropdown
+        ComboBox<Category> categoryCombo = new ComboBox<>("Category");
+        categoryCombo.setItems(categoryService.getAllCategories());
+        categoryCombo.setItemLabelGenerator(Category::getName);
+        categoryCombo.setRequired(true);
+        categoryCombo.setPlaceholder("Select category");
+        categoryCombo.setWidthFull();
+
+        // Price
+        NumberField priceField = new NumberField("Price");
+        priceField.setRequired(true);
+        priceField.setPrefixComponent(new Span("$"));
+        priceField.setMin(0.01);
+        priceField.setStep(0.01);
+        priceField.setPlaceholder("0.00");
+        priceField.setWidthFull();
+
+        // Inventory
+        IntegerField inventoryField = new IntegerField("Inventory");
+        inventoryField.setRequired(true);
+        inventoryField.setMin(0);
+        inventoryField.setValue(0);
+        inventoryField.setHelperText("Available stock quantity");
+        inventoryField.setWidthFull();
+
+        // Description
+        TextArea descriptionField = new TextArea("Description");
+        descriptionField.setPlaceholder("Product description...");
+        descriptionField.setMaxLength(1000);
+        descriptionField.setHelperText("Max 1000 characters");
+        descriptionField.setWidthFull();
+
+        // Add fields to form
+        formLayout.add(nameField, brandField);
+        formLayout.add(categoryCombo, 2);
+        formLayout.add(priceField, inventoryField);
+        formLayout.add(descriptionField, 2);
+
+        // Confirm button
+        Button confirmButton = new Button("Confirm", e -> {
+            // Validate all required fields
+            if (nameField.isEmpty() || brandField.isEmpty() ||
+                    categoryCombo.isEmpty() || priceField.isEmpty() ||
+                    inventoryField.isEmpty()) {
+                showNotification("⚠️ Please fill all required fields",
+                        NotificationVariant.LUMO_ERROR);
+                return;
+            }
+
+            try {
+                // Create product request
+                AddProductRequest request = new AddProductRequest();
+                request.setName(nameField.getValue());
+                request.setBrand(brandField.getValue());
+                request.setCategory(categoryCombo.getValue());
+                request.setPrice(BigDecimal.valueOf(priceField.getValue()));
+                request.setInventory(inventoryField.getValue());
+                request.setDescription(descriptionField.getValue());
+
+                // Add product (service handles entity creation)
+                productService.addProduct(request);
+
+                // Show success message
+                showNotification("✅ Product added successfully!",
+                        NotificationVariant.LUMO_SUCCESS);
+
+                // Close dialog
+                dialog.close();
+
+                // ✅ Refresh product list (updateList() converts entities to DTOs)
+                updateList();
+
+            } catch (Exception ex) {
+                showNotification("❌ Error adding product: " + ex.getMessage(),
+                        NotificationVariant.LUMO_ERROR);
+                ex.printStackTrace();
+            }
+        });
+        confirmButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        // Cancel button
+        Button cancelButton = new Button("Cancel", e -> dialog.close());
+        cancelButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        // Button layout
+        HorizontalLayout buttonsLayout = new HorizontalLayout(confirmButton, cancelButton);
+        buttonsLayout.setJustifyContentMode(JustifyContentMode.END);
+        buttonsLayout.setPadding(true);
+
+        // Add form and buttons to dialog
+        VerticalLayout dialogLayout = new VerticalLayout(formLayout, buttonsLayout);
+        dialogLayout.setPadding(false);
+        dialogLayout.setSpacing(true);
+
+        dialog.add(dialogLayout);
+        dialog.open();
+    }
+
+    /**
+     * Update product list
+     *
+     * ✅ IMPORTANT: Uses getConvertedProducts() to convert entities to DTOs
+     * This is why Grid<ProductDto> works perfectly!
+     */
     private void updateList() {
         try {
             String filter = filterText.getValue();
             List<ProductDto> products;
 
             if (filter == null || filter.isEmpty()) {
+                // Get all products as DTOs
                 products = productService.getConvertedProducts(
                         productService.getAllProducts()
                 );
             } else {
+                // Get filtered products as DTOs
                 products = productService.getConvertedProducts(
                         productService.getProductsByName(filter)
                 );
@@ -203,31 +399,32 @@ public class ProductListView extends VerticalLayout {
             grid.setItems(products);
             quantitySelectors.clear(); // Clear state when list updates
         } catch (Exception e) {
-            Notification.show("Error loading products: " + e.getMessage(),
-                            3000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            showNotification("❌ Error loading products: " + e.getMessage(),
+                    NotificationVariant.LUMO_ERROR);
             grid.setItems();
         }
     }
-
     private void addToCart(ProductDto product, int quantity) {
         try {
             User user = userService.getAuthenticatedUser();
             Cart cart = cartService.initializeNewCart(user);
             cartItemService.addItemToCart(cart.getId(), product.getId(), quantity);
 
-            Notification notification = Notification.show(
+            showNotification(
                     "✅ Added " + quantity + "x " + product.getName() + " to cart!",
-                    3000,
-                    Notification.Position.BOTTOM_END
+                    NotificationVariant.LUMO_SUCCESS
             );
-            notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
         } catch (Exception e) {
-            Notification.show("Failed to add to cart: " + e.getMessage(),
-                            3000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            showNotification("❌ Failed to add to cart: " + e.getMessage(),
+                    NotificationVariant.LUMO_ERROR);
         }
+    }
+
+    private void showNotification(String message, NotificationVariant variant) {
+        Notification notification = Notification.show(message, 3000,
+                Notification.Position.BOTTOM_CENTER);
+        notification.addThemeVariants(variant);
     }
 
     /**

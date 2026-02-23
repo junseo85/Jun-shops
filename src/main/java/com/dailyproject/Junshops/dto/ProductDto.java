@@ -1,6 +1,5 @@
 package com.dailyproject.Junshops.dto;
 
-import com.dailyproject.Junshops.model.Category;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -14,6 +13,6 @@ public class ProductDto {
     private BigDecimal price;
     private int inventory;
     private String description;
-    private Category category;
+    private String categoryName;
     private List<ImageDto> images;
 }

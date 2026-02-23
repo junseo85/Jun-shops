@@ -161,7 +161,7 @@ public class ProductService implements IProductService {
 
         // Map category
         if (product.getCategory() != null) {
-            productDto.setCategory(product.getCategory());
+            productDto.setCategoryName(product.getCategory().getName());
         }
 
         // Map images - now safe because they're eagerly fetched

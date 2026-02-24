@@ -1,0 +1,144 @@
+/**
+ * Jun-Shops - Simple Modern Theme
+ * Safe approach: CSS in frontend folder
+ */
+
+/* ============================================
+   🎨 MODERN COLOR PALETTE
+   ============================================ */
+
+:root {
+    /* Primary Colors - Professional Blue */
+    --lumo-primary-color: #2563eb;
+    --lumo-primary-color-50pct: rgba(37, 99, 235, 0.5);
+    --lumo-primary-color-10pct: rgba(37, 99, 235, 0.1);
+    --lumo-primary-text-color: #2563eb;
+
+    /* Success Green */
+    --lumo-success-color: #10b981;
+    --lumo-success-color-50pct: rgba(16, 185, 129, 0.5);
+    --lumo-success-color-10pct: rgba(16, 185, 129, 0.1);
+
+    /* Neutral Colors */
+    --lumo-base-color: #ffffff;
+    --lumo-tint-5pct: rgba(0, 0, 0, 0.05);
+    --lumo-tint-10pct: rgba(0, 0, 0, 0.1);
+    --lumo-shade-5pct: rgba(0, 0, 0, 0.05);
+
+    /* Border Radius */
+    --lumo-border-radius-m: 6px;
+    --lumo-border-radius-l: 8px;
+
+    /* Shadows */
+    --lumo-box-shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --lumo-box-shadow-s: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    --lumo-box-shadow-m: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   🔘 BUTTONS - Modern Style
+   ============================================ */
+
+vaadin-button {
+    border-radius: var(--lumo-border-radius-m);
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+vaadin-button:hover {
+    transform: translateY(-1px);
+}
+
+vaadin-button[theme~="primary"] {
+    background: var(--lumo-primary-color);
+}
+
+vaadin-button[theme~="success"] {
+    background: var(--lumo-success-color);
+}
+
+/* ============================================
+   📊 GRID - Clean Table
+   ============================================ */
+
+vaadin-grid {
+    border-radius: var(--lumo-border-radius-l);
+    box-shadow: var(--lumo-box-shadow-s);
+}
+
+vaadin-grid::part(header-cell) {
+    background: var(--lumo-primary-color);
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    letter-spacing: 0.05em;
+}
+
+vaadin-grid::part(row):hover {
+    background: var(--lumo-primary-color-10pct);
+}
+
+/* ============================================
+   📝 FORMS - Modern Inputs
+   ============================================ */
+
+vaadin-text-field,
+vaadin-password-field,
+vaadin-email-field,
+vaadin-number-field,
+vaadin-integer-field,
+vaadin-text-area,
+vaadin-combo-box {
+    --lumo-border-radius: var(--lumo-border-radius-m);
+}
+
+vaadin-text-field::part(input-field),
+vaadin-password-field::part(input-field),
+vaadin-email-field::part(input-field),
+vaadin-number-field::part(input-field),
+vaadin-integer-field::part(input-field),
+vaadin-text-area::part(input-field),
+vaadin-combo-box::part(input-field) {
+    border: 2px solid var(--lumo-contrast-10pct);
+    transition: all 0.2s ease;
+}
+
+vaadin-text-field::part(input-field):focus-within,
+vaadin-password-field::part(input-field):focus-within,
+vaadin-email-field::part(input-field):focus-within,
+vaadin-number-field::part(input-field):focus-within,
+vaadin-integer-field::part(input-field):focus-within,
+vaadin-text-area::part(input-field):focus-within,
+vaadin-combo-box::part(input-field):focus-within {
+    border-color: var(--lumo-primary-color);
+    box-shadow: 0 0 0 2px var(--lumo-primary-color-10pct);
+}
+
+/* ============================================
+   💬 DIALOGS - Modern Modals
+   ============================================ */
+
+vaadin-dialog-overlay {
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   🔔 NOTIFICATIONS
+   ============================================ */
+
+vaadin-notification-card {
+    border-radius: var(--lumo-border-radius-l);
+    box-shadow: var(--lumo-box-shadow-m);
+}
+
+/* ============================================
+   📱 RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+    :root {
+        --lumo-font-size-m: 0.875rem;
+    }
+}

@@ -11,6 +11,7 @@ import com.dailyproject.Junshops.service.cart.ICartService;
 import com.dailyproject.Junshops.service.category.ICategoryService;
 import com.dailyproject.Junshops.service.product.IProductService;
 import com.dailyproject.Junshops.service.user.IUserService;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -120,7 +121,11 @@ public class ProductListView extends VerticalLayout {
                 // Reset edit mode and deselect
                 toggleEditMode();
                 grid.deselectAll();
-            }
+                return;
+            }selection.getFirstSelectedItem().ifPresent(selected -> {
+                UI.getCurrent().navigate("products/" + selected.getId());
+            });
+
         });
     }
 
@@ -208,7 +213,7 @@ public class ProductListView extends VerticalLayout {
         if (product.getInventory() == 0) {
             layout.add(new Span("Out of Stock"));
         } else {
-            layout.add(actionButton, decreaseBtn, quantityDisplay, increaseBtn);
+            layout.add( decreaseBtn, quantityDisplay, increaseBtn,actionButton);
         }
 
         return layout;
@@ -244,7 +249,11 @@ public class ProductListView extends VerticalLayout {
             editModeButton = new Button("Edit", new Icon(VaadinIcon.EDIT));
             editModeButton.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
             editModeButton.addClickListener(e -> toggleEditMode());
-            toolbar.add(addButton, editModeButton);
+
+            Button testMySelfButton = new Button("Test Myself", new Icon(VaadinIcon.USER));
+            testMySelfButton.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_CONTRAST);
+            testMySelfButton.addClickListener(e -> {});
+            toolbar.add(addButton, editModeButton, testMySelfButton);
         }
         return toolbar;
     }

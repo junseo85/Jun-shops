@@ -142,3 +142,75 @@ vaadin-notification-card {
         --lumo-font-size-m: 0.875rem;
     }
 }
+
+/* Animated buttons */
+vaadin-button {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+vaadin-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Product cards */
+.product-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.product-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Badge styles */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.badge-warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Dark mode styles */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --lumo-base-color: #1a1a2e;
+        --lumo-tint-5pct: rgba(255, 255, 255, 0.05);
+        --lumo-tint-10pct: rgba(255, 255, 255, 0.1);
+        --lumo-contrast: #ffffff;
+        --lumo-contrast-90pct: rgba(255, 255, 255, 0.9);
+        --lumo-contrast-80pct: rgba(255, 255, 255, 0.8);
+        --lumo-contrast-70pct: rgba(255, 255, 255, 0.7);
+        --lumo-contrast-60pct: rgba(255, 255, 255, 0.6);
+        --lumo-contrast-50pct: rgba(255, 255, 255, 0.5);
+        --lumo-contrast-40pct: rgba(255, 255, 255, 0.4);
+        --lumo-contrast-30pct: rgba(255, 255, 255, 0.3);
+        --lumo-contrast-20pct: rgba(255, 255, 255, 0.2);
+        --lumo-contrast-10pct: rgba(255, 255, 255, 0.1);
+        --lumo-contrast-5pct: rgba(255, 255, 255, 0.05);
+    }
+
+    vaadin-grid {
+        background: #1a1a2e;
+    }
+}

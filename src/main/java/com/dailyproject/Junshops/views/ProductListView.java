@@ -1,8 +1,11 @@
 package com.dailyproject.Junshops.views;
 
+import com.dailyproject.Junshops.client.ImageClient;
+import com.dailyproject.Junshops.dto.ImageDto;
 import com.dailyproject.Junshops.dto.ProductDto;
 import com.dailyproject.Junshops.model.Cart;
 import com.dailyproject.Junshops.model.Category;
+import com.dailyproject.Junshops.model.Product;
 import com.dailyproject.Junshops.model.User;
 import com.dailyproject.Junshops.request.AddProductRequest;
 import com.dailyproject.Junshops.request.ProductUpdateRequest;
@@ -30,6 +33,9 @@ import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
+import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -38,7 +44,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +75,7 @@ public class ProductListView extends VerticalLayout {
     private final ICartItemService cartItemService;
     private final IUserService userService;
     private final ICategoryService categoryService;
+    private final ImageClient imageClient;
 
     private final Grid<ProductDto> grid = new Grid<>(ProductDto.class, false);
     private final TextField filterText = new TextField();
@@ -80,12 +89,13 @@ public class ProductListView extends VerticalLayout {
     public ProductListView(IProductService productService,
                            ICartService cartService,
                            ICartItemService cartItemService,
-                           IUserService userService,ICategoryService categoryService) {
+                           IUserService userService, ICategoryService categoryService, ImageClient imageClient) {
         this.productService = productService;
         this.cartService = cartService;
         this.cartItemService = cartItemService;
         this.userService = userService;
         this.categoryService = categoryService;
+        this.imageClient = imageClient;
 
         addClassName("product-list-view");
         setSizeFull();
@@ -366,11 +376,23 @@ public class ProductListView extends VerticalLayout {
         descriptionField.setHelperText("Max 1000 characters");
         descriptionField.setWidthFull();
 
+        // --- Images upload (NEW) ---
+        MultiFileMemoryBuffer buffer = new MultiFileMemoryBuffer();
+        Upload upload = new Upload(buffer);
+        upload.setAcceptedFileTypes("image/png", "image/jpeg", "image/jpg", "image/webp");
+        upload.setMaxFiles(5); // optional
+        upload.setDropAllowed(true);
+        upload.setWidthFull();
+
+// Optional: helper text
+        upload.getElement().setProperty("title", "Upload product images");
+
         // Add fields to form
         formLayout.add(nameField, brandField);
         formLayout.add(categoryCombo, 2);
         formLayout.add(priceField, inventoryField);
         formLayout.add(descriptionField, 2);
+        formLayout.add(upload, 2);//image
 
         // Confirm button
         Button confirmButton = new Button("Confirm", e -> {
@@ -394,7 +416,25 @@ public class ProductListView extends VerticalLayout {
                 request.setDescription(descriptionField.getValue());
 
                 // Add product (service handles entity creation)
-                productService.addProduct(request);
+                //productService.addProduct(request);
+                //1) save product
+                Product savedProduct = productService.addProduct(request);
+                Long productId = savedProduct.getId();// need to upload the image in buffer to backend endpoint with files
+
+                //2) collect uploaded files (if any) and upload
+                List<ImageClient.UploadFile> uploadFiles = new ArrayList<>();
+
+                for (String fileName: buffer.getFiles()){
+                    try (InputStream in = buffer.getInputStream(fileName)){
+                        byte[] bytes = in.readAllBytes();
+                        String contentType = "application/octet-stream";
+                        uploadFiles.add(new ImageClient.UploadFile(fileName,contentType,bytes));
+                    }
+                }
+                if (!uploadFiles.isEmpty()) {
+                    List<ImageDto> uploadedImages = imageClient.uploadImages(productId, uploadFiles);
+                    System.out.println("Uploaded images: " + uploadedImages);
+                }
 
                 // Show success message
                 showNotification("✅ Product added successfully!",
@@ -443,6 +483,8 @@ public class ProductListView extends VerticalLayout {
      * - Confirm to save changes
      */
     private void openEditProductDialog(ProductDto product) {
+        final String[] uploadedFileName = { null };
+        final String[] uploadedMimeType = { null };
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("✏️ Edit Product");
         dialog.setWidth("600px");
@@ -515,12 +557,24 @@ public class ProductListView extends VerticalLayout {
         descriptionField.setMaxLength(1000);
         descriptionField.setWidthFull();
 
+        MemoryBuffer imgBuffer = new MemoryBuffer();
+        Upload replaceUpload = new Upload(imgBuffer);
+        replaceUpload.addSucceededListener(e -> {
+            uploadedFileName[0] = e.getFileName();
+            uploadedMimeType[0] = e.getMIMEType();
+        });
+        replaceUpload.setAcceptedFileTypes("image/png", "image/jpeg", "image/jpg", "image/webp");
+        replaceUpload.setMaxFiles(1);
+        replaceUpload.setDropAllowed(true);
+        replaceUpload.setWidthFull();
+
         // Add fields to form
         formLayout.add(productIdDisplay, 2);  // Full width
         formLayout.add(nameField, brandField);
         formLayout.add(categoryCombo, 2);  // Full width
         formLayout.add(priceField, inventoryField);
         formLayout.add(descriptionField, 2);  // Full width
+        formLayout.add(replaceUpload, 2);
 
         // Confirm button
         Button confirmButton = new Button("Confirm", e -> {
@@ -542,7 +596,46 @@ public class ProductListView extends VerticalLayout {
                 request.setDescription(descriptionField.getValue());
 
                 productService.updateProduct(request, product.getId());
+//                if (imgBuffer.getFileName() != null) {
+//                    byte[] bytes;
+//                    try (InputStream in = imgBuffer.getInputStream()) {
+//                        bytes = in.readAllBytes();
+//                    }
+//
+//                    String fileName = imgBuffer.getFileName();
+//                    String contentType = imgBuffer.getFileData().getMimeType(); // if available; otherwise use event MIME type
+//
+//                    ImageClient.UploadFile uploadFile = new ImageClient.UploadFile(
+//                            fileName,
+//                            contentType != null ? contentType : "application/octet-stream",
+//                            bytes
+//                    );
+//
+//                    if (product.getImages() != null && !product.getImages().isEmpty()) {
+//                        Long imageId = product.getImages().get(0).getId();
+//                        imageClient.updateImage(imageId, uploadFile);
+//                    } else {
+//                        imageClient.uploadImages(product.getId(), List.of(uploadFile));
+//                    }
+//                }
+                if (uploadedFileName[0] != null) {
+                    byte[] bytes;
+                    try (InputStream in = imgBuffer.getInputStream()) {
+                        bytes = in.readAllBytes();
+                    }
 
+                    String fileName = uploadedFileName[0];
+                    String contentType = uploadedMimeType[0] != null ? uploadedMimeType[0] : "application/octet-stream";
+
+                    ImageClient.UploadFile uploadFile = new ImageClient.UploadFile(fileName, contentType, bytes);
+
+                    if (product.getImages() != null && !product.getImages().isEmpty()) {
+                        Long imageId = product.getImages().get(0).getId();
+                        imageClient.updateImage(imageId, uploadFile);
+                    } else {
+                        imageClient.uploadImages(product.getId(), List.of(uploadFile));
+                    }
+                }
                 showNotification("✅ Product updated successfully!",
                         NotificationVariant.LUMO_SUCCESS);
 

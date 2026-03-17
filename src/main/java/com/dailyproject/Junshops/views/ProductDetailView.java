@@ -1,5 +1,6 @@
 package com.dailyproject.Junshops.views;
 
+import com.dailyproject.Junshops.client.ImageClient;
 import com.dailyproject.Junshops.dto.ImageDto;
 import com.dailyproject.Junshops.dto.ProductDto;
 import com.dailyproject.Junshops.model.Cart;
@@ -29,6 +30,8 @@ import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
@@ -38,6 +41,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -51,6 +55,7 @@ public class ProductDetailView extends VerticalLayout implements BeforeEnterObse
     private final ICartItemService cartItemService;
     private final IUserService userService;
     private final ICategoryService categoryService;
+    private final ImageClient imageClient;
 
     // UI sections
     private final VerticalLayout leftMedia = new VerticalLayout();
@@ -65,13 +70,14 @@ public class ProductDetailView extends VerticalLayout implements BeforeEnterObse
     public ProductDetailView(IProductService productService,
                              ICartService cartService,
                              ICartItemService cartItemService,
-                             IUserService userService, ICategoryService categoryService) {
+                             IUserService userService, ICategoryService categoryService, ImageClient imageClient) {
 
         this.productService = productService;
         this.cartService = cartService;
         this.cartItemService = cartItemService;
         this.userService = userService;
         this.categoryService = categoryService;
+        this.imageClient = imageClient;
 
         addClassName("product-detail-view");
         setSizeFull();
@@ -161,6 +167,11 @@ public class ProductDetailView extends VerticalLayout implements BeforeEnterObse
         );
     }
     private void openEditProductDialog(ProductDto product) {
+
+        final String[] uploadedFileName = { null };
+        final String[] uploadedMimeType = { null };
+
+
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("✏️ Edit Product");
         dialog.setWidth("600px");
@@ -225,11 +236,26 @@ public class ProductDetailView extends VerticalLayout implements BeforeEnterObse
         descriptionField.setMaxLength(1000);
         descriptionField.setWidthFull();
 
+        MemoryBuffer imgBuffer = new MemoryBuffer();
+        Upload replaceUpload = new Upload(imgBuffer);
+
+        replaceUpload.addSucceededListener(e -> {
+            uploadedFileName[0] = e.getFileName();
+            uploadedMimeType[0] = e.getMIMEType();
+        });
+
+
+        replaceUpload.setAcceptedFileTypes("image/png", "image/jpeg", "image/jpg", "image/webp");
+        replaceUpload.setMaxFiles(1);
+        replaceUpload.setDropAllowed(true);
+        replaceUpload.setWidthFull();
+
         formLayout.add(productIdDisplay, 2);
         formLayout.add(nameField, brandField);
         formLayout.add(categoryCombo, 2);
         formLayout.add(priceField, inventoryField);
         formLayout.add(descriptionField, 2);
+        formLayout.add(replaceUpload, 2);
 
         Button confirmButton = new Button("Confirm", e -> {
             if (nameField.isEmpty() || brandField.isEmpty() ||
@@ -252,6 +278,50 @@ public class ProductDetailView extends VerticalLayout implements BeforeEnterObse
 
                 productService.updateProduct(request, product.getId());
 
+//                if (imgBuffer.getFileName() != null) {
+//                    byte[] bytes;
+//                    try (InputStream in = imgBuffer.getInputStream()) {
+//                        bytes = in.readAllBytes();
+//                    }
+//
+//
+//                    String fileName = imgBuffer.getFileName();
+//                    String contentType = imgBuffer.getFileData().getMimeType();
+//
+//                    ImageClient.UploadFile uploadFile = new ImageClient.UploadFile(
+//                            fileName,
+//                            contentType != null ? contentType : "application/octet-stream",
+//                            bytes
+//                    );
+//
+//                    if (product.getImages() != null && !product.getImages().isEmpty()) {
+//                        Long imageId = product.getImages().get(0).getId();
+//                        imageClient.updateImage(imageId, uploadFile);
+//                    } else {
+//                        imageClient.uploadImages(product.getId(), List.of(uploadFile));
+//                    }
+//                }
+
+                if (uploadedFileName[0] != null) {
+                    byte[] bytes;
+                    try (InputStream in = imgBuffer.getInputStream()) {
+                        bytes = in.readAllBytes();
+                    }
+
+                    String fileName = uploadedFileName[0];
+                    String contentType = uploadedMimeType[0] != null
+                            ? uploadedMimeType[0]
+                            : "application/octet-stream";
+
+                    ImageClient.UploadFile uploadFile = new ImageClient.UploadFile(fileName, contentType, bytes);
+
+                    if (product.getImages() != null && !product.getImages().isEmpty()) {
+                        Long imageId = product.getImages().get(0).getId();
+                        imageClient.updateImage(imageId, uploadFile);
+                    } else {
+                        imageClient.uploadImages(product.getId(), List.of(uploadFile));
+                    }
+                }
                 Notification n = Notification.show("✅ Product updated successfully!", 3000,
                         Notification.Position.BOTTOM_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
@@ -259,6 +329,8 @@ public class ProductDetailView extends VerticalLayout implements BeforeEnterObse
                 dialog.close();
 
                 // ✅ refresh current detail page with updated data
+//                this.product = productService.converToDto(productService.getProductById(product.getId()));
+//                render();
                 this.product = productService.converToDto(productService.getProductById(product.getId()));
                 render();
 

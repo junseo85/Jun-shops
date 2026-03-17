@@ -27,7 +27,7 @@ public class RestClientConfig {
         return WebClient.builder()
                 .baseUrl(baseUrl + apiPrefix)
                 .exchangeStrategies(strategies)
-                .defaultHeader("Content-Type", "application/json")
+                //.defaultHeader("Content-Type", "application/json")
                 .defaultHeader("Accept", "application/json")
                 .build();
     }

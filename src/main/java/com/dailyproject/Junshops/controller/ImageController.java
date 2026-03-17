@@ -43,19 +43,31 @@ public class ImageController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + image.getFileName() + "\"")
                 .body(resource);
     }
-    @PutMapping("/image/{imageId}/update")
-    public ResponseEntity<ApiResponse> updateImage(@PathVariable Long imageId, @RequestBody MultipartFile file){
-        try {
-            Image image = imageService.getImagesById(imageId);
-            if(image != null){
-                imageService.updateImage(file, imageId);
-                return ResponseEntity.ok(new ApiResponse("Update success!", null));
-            }
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(NOT_FOUND).body(new ApiResponse("Image not found", null));
-        }
-        return ResponseEntity.status(INTERNAL_SERVER_ERROR).body(new ApiResponse("Update failed!", INTERNAL_SERVER_ERROR));
+//    @PutMapping("/image/{imageId}/update")
+//    public ResponseEntity<ApiResponse> updateImage(@PathVariable Long imageId, @RequestBody MultipartFile file){
+//        try {
+//            Image image = imageService.getImagesById(imageId);
+//            if(image != null){
+//                imageService.updateImage(file, imageId);
+//                return ResponseEntity.ok(new ApiResponse("Update success!", null));
+//            }
+//        } catch (ResourceNotFoundException e) {
+//            return ResponseEntity.status(NOT_FOUND).body(new ApiResponse("Image not found", null));
+//        }
+//        return ResponseEntity.status(INTERNAL_SERVER_ERROR).body(new ApiResponse("Update failed!", INTERNAL_SERVER_ERROR));
+//    }
+@PutMapping("/image/{imageId}/update")
+public ResponseEntity<ApiResponse> updateImage(@PathVariable Long imageId,
+                                               @RequestParam MultipartFile file) {
+    try {
+        imageService.updateImage(file, imageId);
+        return ResponseEntity.ok(new ApiResponse("Update success!", null));
+    } catch (ResourceNotFoundException e) {
+        return ResponseEntity.status(NOT_FOUND).body(new ApiResponse("Image not found", null));
+    } catch (Exception e) {
+        return ResponseEntity.status(INTERNAL_SERVER_ERROR).body(new ApiResponse("Update failed!", e.getMessage()));
     }
+}
 
     @DeleteMapping("/image/{imageId}/delete")
     public ResponseEntity<ApiResponse> deleteImage(@PathVariable Long imageId){
